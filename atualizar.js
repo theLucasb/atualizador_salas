@@ -167,6 +167,25 @@ async function atualizarGithub() {
   const workbook =
     XLSX.readFile(EXCEL_PATH);
 
+  const nomeAba = obterNomeAbaAtual();
+
+  const worksheet =
+    workbook.Sheets[nomeAba];
+
+  const linhas =
+    XLSX.utils.sheet_to_json(
+      worksheet,
+      {
+        header: 1,
+        defval: ""
+      }
+    );
+
+  console.log(
+    "VALOR DA SALA MÓVEL:",
+    linhas[2]
+  );
+
   const dados =
     gerarDados(workbook);
 
