@@ -88,12 +88,12 @@ function gerarDados(workbook) {
     "SALA 01",
     "SALA 02",
     "SALA 03",
-    "SALA MÓVEL",
+    "SALA MÓVEL 01",
+    "SALA MÓVEL 02",
     "LAB. INFORMÁTICA",
     "LAB. AUTOMAÇÃO",
     "LAB. ELÉTRICA",
-    "LAB. MECÂNICA",
-    "LA. MECÂNICA"
+    "LAB. MECÂNICA"
   ];
 
   for (let i = 1; i < linhas.length; i++) {
