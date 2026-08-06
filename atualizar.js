@@ -181,11 +181,6 @@ async function atualizarGithub() {
       }
     );
 
-  console.log(
-    "VALOR DA SALA MÓVEL:",
-    linhas[2]
-  );
-
   const dados =
     gerarDados(workbook);
 
