@@ -93,7 +93,8 @@ function gerarDados(workbook) {
     "LAB. INFORMÁTICA",
     "LAB. AUTOMAÇÃO",
     "LAB. ELÉTRICA",
-    "LAB. MECÂNICA"
+    "LAB. MECÂNICA",
+    "LAB. VESTUÁRIO"
   ];
 
   for (let i = 1; i < linhas.length; i++) {
