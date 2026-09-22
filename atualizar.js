@@ -152,53 +152,86 @@ function gerarDados(workbook) {
 async function atualizarGithub() {
 
   console.log("=================================");
-  console.log("ATUALIZADOR DE SALAS");
+  console.log("ATUALIZADOR DE SALAS -", new Date().toLocaleString("pt-BR"));
   console.log("=================================");
 
-  const stats =
-    fs.statSync(EXCEL_PATH);
+  try {
 
-  console.log(
-    "Última alteração do Excel:",
-    stats.mtime
-  );
+    const stats =
+      fs.statSync(EXCEL_PATH);
 
-  console.log("Abrindo planilha...");
-
-  const workbook =
-    XLSX.readFile(EXCEL_PATH);
-
-  const nomeAba = obterNomeAbaAtual();
-
-  const worksheet =
-    workbook.Sheets[nomeAba];
-
-  const linhas =
-    XLSX.utils.sheet_to_json(
-      worksheet,
-      {
-        header: 1,
-        defval: ""
-      }
+    console.log(
+      "Última alteração do Excel:",
+      stats.mtime
     );
 
-  const dados =
-    gerarDados(workbook);
+    console.log("Abrindo planilha...");
 
-  console.log(
-    `${dados.length} registros encontrados`
-  );
+    const workbook =
+      XLSX.readFile(EXCEL_PATH);
 
-  const jsonString =
-    JSON.stringify(dados, null, 2);
+    const dados =
+      gerarDados(workbook);
 
-  console.log(
-    "Buscando SHA atual..."
-  );
+    console.log(
+      `${dados.length} registros encontrados`
+    );
 
-  const arquivoAtual =
-    await axios.get(
+    const jsonString =
+      JSON.stringify(dados, null, 2);
+
+    console.log(
+      "Buscando SHA atual..."
+    );
+
+    const arquivoAtual =
+      await axios.get(
+        `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/dados.json`,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${GITHUB_TOKEN}`
+          }
+        }
+      );
+
+    const sha =
+      arquivoAtual.data.sha;
+
+    const conteudoAtual =
+      Buffer
+        .from(
+          arquivoAtual.data.content,
+          "base64"
+        )
+        .toString("utf8");
+
+    if (conteudoAtual === jsonString) {
+
+      console.log(
+        "Nenhuma alteração encontrada."
+      );
+
+      return;
+    }
+
+    console.log(
+      "Enviando atualização..."
+    );
+
+    await axios.put(
       `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/dados.json`,
+      {
+        message:
+          `Atualização automática ${new Date().toLocaleString("pt-BR")}`,
+
+        content:
+          Buffer
+            .from(jsonString)
+            .toString("base64"),
+
+        sha
+      },
       {
         headers: {
           Authorization:
@@ -207,67 +240,55 @@ async function atualizarGithub() {
       }
     );
 
-  const sha =
-    arquivoAtual.data.sha;
-
-  const conteudoAtual =
-    Buffer
-      .from(
-        arquivoAtual.data.content,
-        "base64"
-      )
-      .toString("utf8");
-
-  if (conteudoAtual === jsonString) {
+    console.log(
+      "Atualização concluída!"
+    );
 
     console.log(
-      "Nenhuma alteração encontrada."
+      `Total enviado: ${dados.length} registros`
     );
 
-    return;
+  } catch (err) {
+
+    console.error("ERRO ao atualizar:");
+    console.error(err.response?.data || err.message || err);
   }
-
-  console.log(
-    "Enviando atualização..."
-  );
-
-  await axios.put(
-    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/dados.json`,
-    {
-      message:
-        `Atualização automática ${new Date().toLocaleString("pt-BR")}`,
-
-      content:
-        Buffer
-          .from(jsonString)
-          .toString("base64"),
-
-      sha
-    },
-    {
-      headers: {
-        Authorization:
-          `Bearer ${GITHUB_TOKEN}`
-      }
-    }
-  );
-
-  console.log(
-    "Atualização concluída!"
-  );
-
-  console.log(
-    `Total enviado: ${dados.length} registros`
-  );
 }
 
-atualizarGithub()
-  .then(() => process.exit())
-  .catch(err => {
+// ================================================
+// NOVO: mantém o processo vivo e observa a planilha
+// ================================================
 
-    console.error("ERRO:");
+let debounceTimer = null;
 
-    console.error(
-      err.response?.data || err
-    );
-  });
+function agendarAtualizacao(motivo) {
+
+  console.log(`\n${motivo} — aguardando 3s antes de atualizar...`);
+
+  clearTimeout(debounceTimer);
+
+  debounceTimer = setTimeout(() => {
+    atualizarGithub();
+  }, 3000); // espera 3s de "silêncio" após a última alteração
+}
+
+console.log(`Observando alterações em: ${EXCEL_PATH}`);
+console.log("Este processo precisa ficar rodando (use pm2, Task Scheduler ou similar).\n");
+
+// roda uma vez assim que o script inicia
+atualizarGithub();
+
+// dispara sempre que o arquivo for salvo
+fs.watch(EXCEL_PATH, (eventType) => {
+
+  if (eventType === "change") {
+    agendarAtualizacao("Alteração detectada na planilha");
+  }
+});
+
+// rede de segurança: caso o evento de "change" não seja disparado
+// (acontece às vezes com arquivos sincronizados via OneDrive/SharePoint),
+// verifica a cada 2 minutos se algo mudou
+setInterval(() => {
+  agendarAtualizacao("Verificação periódica");
+}, 2 * 60 * 1000);
